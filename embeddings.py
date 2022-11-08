@@ -7,7 +7,6 @@ import pickle
 from openl3.models import load_audio_embedding_model
 from soundfile import write
 from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPClassifier
 
 
 def get_embeddings(dir_inp: [list, str], dir_out: str, flag: str, model):
@@ -102,11 +101,13 @@ def get_audio_inputs(sr_target: int, dir_inp: str, list_speakers: [list, str]):
                     list_targets.append(speaker)
                 else:
                     print(f'Skip {filename}')
-    print('...done')
+    print('...done\n')
     return list_audio, list_dir_audio, list_targets
 
 
 def save_pickle(path, name, params):
+    ...
+
     name += '.pickle'
     with open(os.path.join(path, name), 'bw') as handle:
         pickle.dump(params, handle)
@@ -141,7 +142,7 @@ def main(dir_inputs: str, dir_outputs: str, sr_target: int, model):
     # Separate speaker categories into the training and testing subsets
     list_speakers_train, list_speakers_test = train_test_split(list_speakers_total, test_size=0.11)
     # Get training subset
-    print('Get training audio subset...\n')
+    print('Get training audio subset...')
     _, list_dir_audio_train, list_targets_train = get_audio_inputs(
         sr_target=sr_target,
         dir_inp=dir_inputs,
@@ -179,22 +180,19 @@ def main(dir_inputs: str, dir_outputs: str, sr_target: int, model):
 
 if __name__ == '__main__':
     """
-    EXTRACT AUDIO EMBEDDINGS FROM OpenL3 MODEL, 
-    SAVE IT TO SPECIFIED DIRECTORY 
-    AND TRAIN MLP CLASSIFIER.
+    EXTRACT AUDIO EMBEDDINGS FROM OpenL3 MODEL AND SAVE IT TO SPECIFIED DIRECTORY.
     """
 
     # Define params
     path_root = os.getcwd()  # project directory
-    path_in = 'D:\\Data\\tmp'  # 'D:\\Data\\LibriSpeech\\train-clean-100'  # specify audio input directory
+    path_in = 'D:\\Data\\LibriSpeech\\train-clean-100'  # specify audio input directory
     path_out = os.path.join(path_root, 'embeddings')  # specify audio embeddings directory
     sr = 16000  # target sampling rate for audio input
     # Load model
     M = openl3.models.load_audio_embedding_model(
-        input_repr='mel128',  # linear, mel128, mel256
+        input_repr='mel256',  # linear, mel128, mel256
         content_type='env',   # env, music
         embedding_size=512,   # 512, 6144
-        frontend='kapre'      # kapre, librosa
     )  # process inputs with specified params
     # Run embedding extractor
     print("\nRun VP based on OpenL3 audio embedding extractor\n")

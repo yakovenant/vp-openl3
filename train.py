@@ -1,207 +1,155 @@
 import os
-import openl3
-import librosa
-import warnings
 import numpy as np
-import pickle
-from openl3.models import load_audio_embedding_model
-from soundfile import write
+import tensorflow as tf
+import random
 from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPClassifier
 
 
-def get_embeddings(dir_inp: [list, str], dir_out: str, flag: str, model):
+def model_constructor(inp_shape, n_speakers: int, learning_rate: float):
     """
-    COMPUTE AND SAVE EMBEDDINGS.
-    :param dir_inp: str or list[str] -- audio inputs directory
-    :param dir_out: str -- audio embeddings directory
-    :param flag: str or None -- string to be appended to the output filename
-    :param model: -- OpenL3 model
-    """
-
-    if dir_inp:
-        print("\nCompute embeddings...")
-        openl3.core.process_audio_file(
-            filepath=dir_inp,
-            output_dir=dir_out,
-            suffix=flag,
-            model=model,
-            batch_size=32,
-        )  # process all files in the arguments
-    else:
-        raise Exception('Audio input list is empty.')
-
-
-def preprocess_audio(samples_inp, sr_current: int, sr_target: int, filename: str):
-    """
-    AUDIO INPUTS PREPROCESSING.
-    :param samples_inp: ...
-    :param sr_current: ...
-    :param sr_target: ...
-    :param filename: ...
-    :return: samples_out: ...
-    """
-
-    # Check sampling rate
-    if sr_current > sr_target:
-        samples_inp = librosa.resample(samples_inp, orig_sr=sr, target_sr=sr_target)  # down-sampling
-    elif sr_current < sr_target:
-        warnings.warn(f'{filename} has too low sampling rate.')
-    # Remove silence from clean speech
-    clips = librosa.effects.split(samples_inp, top_db=25)
-    samples_out = []
-    for c in clips:
-        data = samples_inp[c[0]:c[1]]
-        samples_out.extend(data)
-    samples_out = np.array(samples_out)
-    # Normalize audio volume
-    max_peak = np.max(np.abs(samples_out))
-    ratio = 1 / max_peak
-    samples_out *= ratio
-
-    return samples_out
-
-
-def get_audio_inputs(sr_target: int, dir_inp: str, list_speakers: [list, str]):
-    """
-    PREPARE AUDIO INPUTS FOR EMBEDDING EXTRACTION.
-    :param sr_target: int -- target sampling rate
-    :param dir_inp: str -- audio input directory
-    :param list_speakers: list[str] -- list of speaker categories which are subdirectories of dir_inp
+    BUILD THE MODEL ARCHITECTURE.
+    :param inp_shape:
+    :param n_speakers:
+    :param learning_rate:
     :return:
-    list_audio: list -- list of audio samples
-    list_dir_audio: list -- list of directories for audio samples
     """
 
-    list_audio = []  # list of audio samples
-    list_dir_audio = []  # list of directories for audio files
-    list_targets = []  # list of speakers corresponding to each audio file
-    for speaker in list_speakers:
-        dir_speaker = os.path.join(dir_inp, speaker)
-        for root, dirs, files in os.walk(dir_speaker):
-            for filename in files:
-                if filename.endswith('.wav') or filename.endswith('.flac'):
-                    dir_audio = os.path.join(root, filename)
-                    # Load mono audio input
-                    audio, sr = librosa.load(dir_audio, sr=None, mono=True)
-                    # Preprocess audio
-                    audio = preprocess_audio(
-                        samples_inp=audio,
-                        sr_current=sr,
-                        sr_target=sr_target,
-                        filename=filename
-                    )
-                    # Save preprocessed audio
-                    if filename.endswith('.wav'):
-                        write(dir_audio, data=audio, samplerate=sr_target, format='wav')
-                    elif filename.endswith('.flac'):
-                        write(dir_audio, data=audio, samplerate=sr_target, format='flac')
-                    # Append paths
-                    list_audio.append(audio)
-                    list_dir_audio.append(dir_audio)
-                    list_targets.append(speaker)
-                else:
-                    print(f'Skip {filename}')
-    print('...done')
-    return list_audio, list_dir_audio, list_targets
-
-
-def save_pickle(path, name, params):
-    name += '.pickle'
-    with open(os.path.join(path, name), 'bw') as handle:
-        pickle.dump(params, handle)
-
-
-def check_dirs(path):
-    """
-    CREATE TRAINING DATA DIRECTORIES
-    :param path: str -- path to extracted audio embeddings
-    """
-    if not os.path.isdir(path):
-        os.makedirs(os.path.join(path, 'train', 'predictors'))
-        os.makedirs(os.path.join(path, 'train', 'targets'))
-        os.makedirs(os.path.join(path, 'test', 'predictors'))
-        os.makedirs(os.path.join(path, 'test', 'targets'))
-
-
-def main(dir_inputs: str, dir_outputs: str, sr_target: int, model):
-    """
-    :param dir_inputs: str -- ...
-    :param dir_outputs: str -- ...
-    :param sr_target: int -- ...
-    :param model: -- ...
-    """
-
-    # DATA PREPARATION
-    check_dirs(dir_outputs)  # prepare data directories
-    # Gather all speaker categories
-    list_speakers_total = []
-    for _speaker in os.listdir(dir_inputs):
-        list_speakers_total.append(_speaker)
-    # Separate speaker categories into the training and testing subsets
-    list_speakers_train, list_speakers_test = train_test_split(list_speakers_total, test_size=0.11)
-    # Get training subset
-    print('Get training audio subset...\n')
-    _, list_dir_audio_train, list_targets_train = get_audio_inputs(
-        sr_target=sr_target,
-        dir_inp=dir_inputs,
-        list_speakers=list_speakers_train
+    model = tf.keras.models.Sequential([
+        # input layer
+        tf.keras.layers.Flatten(input_shape=inp_shape),
+        # 1st dense layer
+        tf.keras.layers.Dense(256, activation='relu'),  # todo?
+        # 2nd dense layer
+        tf.keras.layers.Dense(64, activation='relu'),  # todo?
+        # output layer
+        tf.keras.layers.Dense(n_speakers, activation='softmax')
+    ])
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()]
     )
-    # Save train targets
-    save_pickle(os.path.join(dir_outputs, 'train', 'targets'), 'targets_train', list_targets_train)
-    # Get testing subset
-    print('Get testing audio subset...\n')
-    _, list_dir_audio_test, list_targets_test = get_audio_inputs(
-        sr_target=sr_target,
-        dir_inp=dir_inputs,
-        list_speakers=list_speakers_test
+    model.summary()
+    return model
+
+
+def data_format(data, mode):
+    ...
+
+    if mode == 'gpu':
+        data = np.expand_dims(data, 1)
+    else:  # 'cpu'
+        data = np.expand_dims(data, 3)
+    return data
+
+
+def data_shape(data_set, target_set, mode):
+    ...
+
+    n_input_frames = 1
+    n_features = data_set[0].shape[1]
+    data_total = []
+    targets_total = []
+    for n_file in range(len(data_set)):
+        time_steps = data_set[n_file].shape[0] - n_input_frames
+        file_segments = np.zeros((n_input_frames, n_features, time_steps)).astype(np.float32)
+        for step in range(time_steps):
+            segment = data_set[n_file][step:(step + n_input_frames), :]
+            file_segments[:, :, step] = segment
+        file_segments = np.transpose(file_segments, (2, 0, 1))
+        # file_segments = data_format(file_segments, mode)
+        file_targets = np.ones(time_steps).astype(np.float32)
+        file_targets *= int(target_set[n_file])
+        data_total.extend(file_segments)
+        targets_total.extend(file_targets)
+    data_total = np.array(data_total)
+    targets_total = np.array(targets_total)
+    return data_total, targets_total
+
+
+def data_loader(path: str):
+    ...
+
+    data_total = []  # list of data samples
+    for filename in os.listdir(path):
+        data = np.load(os.path.join(path, filename), allow_pickle=True)
+        if filename.endswith('.npz'):  # predictors
+            emb, ts = data['embedding'], data['timestamps']
+            data_total.append(emb)
+        else:  # targets
+            data_total.append(data)
+    return data_total
+
+
+def main(path_data: str, path_model: str, mode: str, n_epochs: int, n_batch: int):
+    ...
+
+    # LOAD DATA
+    print('Load dataset...')
+    test_inputs = data_loader((os.path.join(path_data, 'test', 'predictors')))
+    [test_targets] = data_loader((os.path.join(path_data, 'test', 'targets')))
+    train_inputs = data_loader((os.path.join(path_data, 'train', 'predictors')))
+    [train_targets] = data_loader((os.path.join(path_data, 'train', 'targets')))
+    # PREPARE INPUTS
+    X, y = data_shape(
+        data_set=train_inputs,
+        target_set=train_targets,
+        mode=mode,
     )
-    # Save test targets
-    save_pickle(os.path.join(dir_outputs, 'test', 'targets'), 'targets_test', list_targets_test)
-    # COMPUTE AND SAVE EMBEDDINGS
-    # For training subset
-    print('\nCompute and save training embeddings\n')
-    get_embeddings(
-        dir_inp=list_dir_audio_train,
-        dir_out=os.path.join(dir_outputs, 'train', 'predictors'),
-        flag='train',
-        model=model
+    # Split training and validation set
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.3)
+    # DEFINE MODEL
+    print('Define model structure...')
+    model = model_constructor(
+        inp_shape=(X.shape[1], X.shape[2]),
+        n_speakers=len(np.unique(train_targets)),
+        learning_rate=0.0001,
     )
-    # For testing subset
-    print('\nCompute and save testing embeddings\n')
-    get_embeddings(
-        dir_inp=list_dir_audio_test,
-        dir_out=os.path.join(dir_outputs, 'test', 'predictors'),
-        flag='test',
-        model=model
+    # TRAIN MODEL
+    print('Start training...')
+    history = model.fit(
+        X_train,
+        y_train,
+        validation_data=(X_val, y_val),
+        epochs=n_epochs,
+        batch_size=n_batch,
     )
+    # SAVE MODEL
+    model.save(path_model, 'model.model')
 
 
 if __name__ == '__main__':
     """
-    EXTRACT AUDIO EMBEDDINGS FROM OpenL3 MODEL, 
-    SAVE IT TO SPECIFIED DIRECTORY 
-    AND TRAIN MLP CLASSIFIER.
+    GET VOICE-PRINT CLASSIFIER.
     """
 
+    # Set random seeds
+    os.environ['PYTHONHASHSEED'] = str(1)
+    random.seed(1)
+    np.random.seed(1)
+    tf.random.set_seed(1)
+    # GPU settings
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        print("TensorFlow IS using the GPU")
+        tf.config.experimental.set_memory_growth(gpus[0], True)  # memory management for GPU
+        computation_mode = 'gpu'
+    else:
+        print("TensorFlow IS NOT using the GPU")
+        computation_mode = 'cpu'
     # Define params
     path_root = os.getcwd()  # project directory
-    path_in = 'D:\\Data\\tmp'  # 'D:\\Data\\LibriSpeech\\train-clean-100'  # specify audio input directory
-    path_out = os.path.join(path_root, 'embeddings')  # specify audio embeddings directory
-    sr = 16000  # target sampling rate for audio input
-    # Load model
-    M = openl3.models.load_audio_embedding_model(
-        input_repr='mel128',  # linear, mel128, mel256
-        content_type='env',   # env, music
-        embedding_size=512,   # 512, 6144
-        frontend='kapre'      # kapre, librosa
-    )  # process inputs with specified params
-    # Run embedding extractor
-    print("\nRun VP based on OpenL3 audio embedding extractor\n")
+    path_in = os.path.join(path_root, 'embeddings')  # specify data directory
+    path_out = os.path.join(path_root, 'model')  # specify output model directory
+    if not os.path.isdir(path_out):
+        os.makedirs(path_out)  # make output model directory
+    # Run training
+    print("\nRun VP based on OpenL3 training process\n")
     main(
-        dir_inputs=path_in,
-        dir_outputs=path_out,
-        sr_target=sr,
-        model=M
-    )  # run
+        path_data=path_in,
+        path_model=path_out,
+        mode=computation_mode,
+        n_epochs=23,  # number of training epochs
+        n_batch=32,   # mini batch size
+    )
     print("\nDone!")
