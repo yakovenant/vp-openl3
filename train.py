@@ -8,19 +8,19 @@ from sklearn.model_selection import train_test_split
 def model_constructor(inp_shape, n_speakers: int, learning_rate: float):
     """
     BUILD THE MODEL ARCHITECTURE.
-    :param inp_shape:
-    :param n_speakers:
-    :param learning_rate:
-    :return:
+    :param inp_shape: input dimensions
+    :param n_speakers: number of speaker classes
+    :param learning_rate: init learning rate parameter
+    :return model: compiled model
     """
 
     model = tf.keras.models.Sequential([
         # input layer
         tf.keras.layers.Flatten(input_shape=inp_shape),
         # 1st dense layer
-        tf.keras.layers.Dense(256, activation='relu'),  # todo?
+        tf.keras.layers.Dense(256, activation='relu'),
         # 2nd dense layer
-        tf.keras.layers.Dense(64, activation='relu'),  # todo?
+        tf.keras.layers.Dense(64, activation='relu'),
         # output layer
         tf.keras.layers.Dense(n_speakers, activation='softmax')
     ])
@@ -33,18 +33,32 @@ def model_constructor(inp_shape, n_speakers: int, learning_rate: float):
     return model
 
 
-def data_format(data, mode):
-    ...
+def data_format(data, mode: str):
+    """
+    CHANNELS FIRST (NCHW) OR CHANNELS LAST (NHWC) INPUT REPRESENTATION.
+    :param data: input data
+    :param mode: CPU or GPU
+    :return data: input data in NCHW or NHWC format
+    """
 
     if mode == 'gpu':
+        # Channels first
         data = np.expand_dims(data, 1)
     else:  # 'cpu'
+        # Channels last
         data = np.expand_dims(data, 3)
     return data
 
 
-def data_shape(data_set, target_set, mode):
-    ...
+def data_shaper(data_set, target_set, mode: str):
+    """
+    SHAPE THE MODEL INPUTS.
+    :param data_set: OpenL3 embeddings corresponding to the audio inputs
+    :param target_set: labels corresponding to data_set
+    :param mode: CPU or GPU for data_format
+    :return data_total: input data shaped by frames
+    :return targets_total: target labels shaped by frames
+    """
 
     n_input_frames = 1
     n_features = data_set[0].shape[1]
@@ -68,30 +82,43 @@ def data_shape(data_set, target_set, mode):
 
 
 def data_loader(path: str):
-    ...
+    """
+    READ THE DATA FROM PATH.
+    :param path: path to the data (OpenL3 embeddings)
+    :return data_total: list of data predictors or label targets.
+    """
 
     data_total = []  # list of data samples
     for filename in os.listdir(path):
         data = np.load(os.path.join(path, filename), allow_pickle=True)
-        if filename.endswith('.npz'):  # predictors
+        if filename.endswith('.npz'):
+            # predictors
             emb, ts = data['embedding'], data['timestamps']
             data_total.append(emb)
-        else:  # targets
+        else:
+            # targets
             data_total.append(data)
     return data_total
 
 
 def main(path_data: str, path_model: str, mode: str, n_epochs: int, n_batch: int):
-    ...
+    """
+    :param path_data: directory of data inputs
+    :param path_model: path to save trained model
+    :param mode: CPU or GPU computations
+    :param n_epochs: maximum number of training epochs
+    :param n_batch: mini batch size
+    :return: trained model is saved to path_model
+    """
 
     # LOAD DATA
     print('Load dataset...')
-    test_inputs = data_loader((os.path.join(path_data, 'test', 'predictors')))
-    [test_targets] = data_loader((os.path.join(path_data, 'test', 'targets')))
+    # test_inputs = data_loader((os.path.join(path_data, 'test', 'predictors')))
+    # [test_targets] = data_loader((os.path.join(path_data, 'test', 'targets')))
     train_inputs = data_loader((os.path.join(path_data, 'train', 'predictors')))
     [train_targets] = data_loader((os.path.join(path_data, 'train', 'targets')))
     # PREPARE INPUTS
-    X, y = data_shape(
+    X, y = data_shaper(
         data_set=train_inputs,
         target_set=train_targets,
         mode=mode,
@@ -116,6 +143,7 @@ def main(path_data: str, path_model: str, mode: str, n_epochs: int, n_batch: int
     )
     # SAVE MODEL
     model.save(path_model, 'model.model')
+    print('Model saved.')
 
 
 if __name__ == '__main__':

@@ -11,11 +11,11 @@ from sklearn.model_selection import train_test_split
 
 def get_embeddings(dir_inp: [list, str], dir_out: str, flag: str, model):
     """
-    COMPUTE AND SAVE EMBEDDINGS.
-    :param dir_inp: str or list[str] -- audio inputs directory
-    :param dir_out: str -- audio embeddings directory
-    :param flag: str or None -- string to be appended to the output filename
-    :param model: -- OpenL3 model
+    COMPUTE AND SAVE OpenL3 AUDIO EMBEDDINGS.
+    :param dir_inp: audio inputs directory
+    :param dir_out: audio embeddings directory
+    :param flag: string to be appended to the output filename
+    :param model: OpenL3 model
     """
 
     if dir_inp:
@@ -34,11 +34,11 @@ def get_embeddings(dir_inp: [list, str], dir_out: str, flag: str, model):
 def preprocess_audio(samples_inp, sr_current: int, sr_target: int, filename: str):
     """
     AUDIO INPUTS PREPROCESSING.
-    :param samples_inp: ...
-    :param sr_current: ...
-    :param sr_target: ...
-    :param filename: ...
-    :return: samples_out: ...
+    :param samples_inp: input audio samples
+    :param sr_current: sampling rate of current audio input
+    :param sr_target: target sampling rate
+    :param filename: audio input file name
+    :return samples_out: preprocessed input audio samples
     """
 
     # Check sampling rate
@@ -53,23 +53,21 @@ def preprocess_audio(samples_inp, sr_current: int, sr_target: int, filename: str
         data = samples_inp[c[0]:c[1]]
         samples_out.extend(data)
     samples_out = np.array(samples_out)
-    # Normalize audio volume
+    # Normalize
     max_peak = np.max(np.abs(samples_out))
     ratio = 1 / max_peak
     samples_out *= ratio
-
     return samples_out
 
 
 def get_audio_inputs(sr_target: int, dir_inp: str, list_speakers: [list, str]):
     """
     PREPARE AUDIO INPUTS FOR EMBEDDING EXTRACTION.
-    :param sr_target: int -- target sampling rate
-    :param dir_inp: str -- audio input directory
-    :param list_speakers: list[str] -- list of speaker categories which are subdirectories of dir_inp
-    :return:
-    list_audio: list -- list of audio samples
-    list_dir_audio: list -- list of directories for audio samples
+    :param sr_target: target sampling rate
+    :param dir_inp: audio input directory
+    :param list_speakers: list of speaker categories which are subdirectories of dir_inp
+    :return list_audio: list of audio samples
+    :return list_dir_audio: list of directories for audio samples
     """
 
     list_audio = []  # list of audio samples
@@ -105,18 +103,25 @@ def get_audio_inputs(sr_target: int, dir_inp: str, list_speakers: [list, str]):
     return list_audio, list_dir_audio, list_targets
 
 
-def save_pickle(path, name, params):
-    ...
+def save_pickle(path: str, name: str, data):
+    """
+    SAVE THE DATA IN PICKLE FORMAT.
+    :param path: saving path
+    :param name: saving name
+    :param data: data to save
+    :return: None
+    """
 
     name += '.pickle'
     with open(os.path.join(path, name), 'bw') as handle:
-        pickle.dump(params, handle)
+        pickle.dump(data, handle)
 
 
-def check_dirs(path):
+def check_dirs(path: str):
     """
-    CREATE TRAINING DATA DIRECTORIES
-    :param path: str -- path to extracted audio embeddings
+    CHECK AND CREATE TRAINING DATA DIRECTORIES.
+    :param path: path to extracted audio embeddings
+    :return: None
     """
     if not os.path.isdir(path):
         os.makedirs(os.path.join(path, 'train', 'predictors'))
@@ -127,10 +132,11 @@ def check_dirs(path):
 
 def main(dir_inputs: str, dir_outputs: str, sr_target: int, model):
     """
-    :param dir_inputs: str -- ...
-    :param dir_outputs: str -- ...
-    :param sr_target: int -- ...
-    :param model: -- ...
+    :param dir_inputs: directory of audio inputs
+    :param dir_outputs: path to save extracted OpenL3 audio embeddings
+    :param sr_target: target sample rate for audio inputs
+    :param model: OpenL3 model for audio embeddings extraction
+    :return: audio embeddings saved into dir_outputs
     """
 
     # DATA PREPARATION
