@@ -15,14 +15,10 @@ def model_constructor(inp_shape, n_speakers: int, learning_rate: float):
     """
 
     model = tf.keras.models.Sequential([
-        # input layer
-        tf.keras.layers.Flatten(input_shape=inp_shape),
-        # 1st dense layer
-        tf.keras.layers.Dense(256, activation='relu'),
-        # 2nd dense layer
-        tf.keras.layers.Dense(64, activation='relu'),
-        # output layer
-        tf.keras.layers.Dense(n_speakers, activation='softmax')
+        tf.keras.layers.Flatten(input_shape=inp_shape, name='input'),           # input layer
+        tf.keras.layers.Dense(256, activation='relu', name='hidden1'),          # 1st dense layer
+        tf.keras.layers.Dense(64, activation='relu', name='hidden2'),           # 2nd dense layer
+        tf.keras.layers.Dense(n_speakers, activation='softmax', name='output')  # output layer
     ])
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate),
@@ -42,11 +38,9 @@ def data_format(data, mode: str):
     """
 
     if mode == 'gpu':
-        # Channels first
-        data = np.expand_dims(data, 1)
+        data = np.expand_dims(data, 1)  # channels first
     else:  # 'cpu'
-        # Channels last
-        data = np.expand_dims(data, 3)
+        data = np.expand_dims(data, 3)  # channels last
     return data
 
 
@@ -91,12 +85,10 @@ def data_loader(path: str):
     data_total = []  # list of data samples
     for filename in os.listdir(path):
         data = np.load(os.path.join(path, filename), allow_pickle=True)
-        if filename.endswith('.npz'):
-            # predictors
+        if filename.endswith('.npz'):  # predictors
             emb, ts = data['embedding'], data['timestamps']
             data_total.append(emb)
-        else:
-            # targets
+        else:  # targets
             data_total.append(data)
     return data_total
 

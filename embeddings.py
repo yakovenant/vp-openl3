@@ -16,6 +16,7 @@ def get_embeddings(dir_inp: [list, str], dir_out: str, flag: str, model):
     :param dir_out: audio embeddings directory
     :param flag: string to be appended to the output filename
     :param model: OpenL3 model
+    :return: None
     """
 
     if dir_inp:
@@ -123,6 +124,7 @@ def check_dirs(path: str):
     :param path: path to extracted audio embeddings
     :return: None
     """
+
     if not os.path.isdir(path):
         os.makedirs(os.path.join(path, 'train', 'predictors'))
         os.makedirs(os.path.join(path, 'train', 'targets'))
