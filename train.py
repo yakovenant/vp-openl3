@@ -67,7 +67,7 @@ def data_shaper(data_set, target_set, mode: str):
         file_segments = np.transpose(file_segments, (2, 0, 1))
         # file_segments = data_format(file_segments, mode)
         file_targets = np.ones(time_steps).astype(np.float32)
-        file_targets *= int(target_set[n_file])
+        file_targets *= target_set[n_file]
         data_total.extend(file_segments)
         targets_total.extend(file_targets)
     data_total = np.array(data_total)
@@ -79,18 +79,34 @@ def data_loader(path: str):
     """
     READ THE DATA FROM PATH.
     :param path: path to the data (OpenL3 embeddings)
-    :return data_total: list of data predictors or label targets.
+    :return data_total: list of data predictors or label targets
+    :return labels_total: list of target speaker label which is several first numbers in filename before "-"
     """
 
     data_total = []  # list of data samples
-    for filename in os.listdir(path):
+    labels_total = []  # list of target speaker labels
+    n_file = 0  # index of file
+    label_int = 0  # init label value
+    files_list = os.listdir(path)  # list of input files
+    for filename in files_list:
         data = np.load(os.path.join(path, filename), allow_pickle=True)
+        label_str = '-'.join(filename.split('-')[:-2])  # such labels make sense only for LibriSpeech filenames
         if filename.endswith('.npz'):  # predictors
             emb, ts = data['embedding'], data['timestamps']
             data_total.append(emb)
-        else:  # targets
-            data_total.append(data)
-    return data_total
+            if n_file == 0:
+                labels_total.append(label_int)
+            else:
+                label_str_prev = '-'.join(files_list[n_file-1].split('-')[:-2])
+                if label_str_prev != label_str:
+                    label_int += 1
+                labels_total.append(label_int)
+            n_file += 1
+        else:
+            # data_total.append(data)  # targets
+            raise Exception('Only .npz must be processed.')
+
+    return data_total, labels_total
 
 
 def main(path_data: str, path_model: str, mode: str, n_epochs: int, n_batch: int):
@@ -105,10 +121,8 @@ def main(path_data: str, path_model: str, mode: str, n_epochs: int, n_batch: int
 
     # LOAD DATA
     print('Load dataset...')
-    # test_inputs = data_loader((os.path.join(path_data, 'test', 'predictors')))
-    # [test_targets] = data_loader((os.path.join(path_data, 'test', 'targets')))
-    train_inputs = data_loader((os.path.join(path_data, 'train', 'predictors')))
-    [train_targets] = data_loader((os.path.join(path_data, 'train', 'targets')))
+    train_inputs, train_targets = data_loader((os.path.join(path_data, 'train', 'predictors')))
+    # [train_targets] = data_loader((os.path.join(path_data, 'train', 'targets')))
     # PREPARE INPUTS
     X, y = data_shaper(
         data_set=train_inputs,

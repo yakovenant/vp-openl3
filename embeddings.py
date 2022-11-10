@@ -127,9 +127,9 @@ def check_dirs(path: str):
 
     if not os.path.isdir(path):
         os.makedirs(os.path.join(path, 'train', 'predictors'))
-        os.makedirs(os.path.join(path, 'train', 'targets'))
+        # os.makedirs(os.path.join(path, 'train', 'targets'))
         os.makedirs(os.path.join(path, 'test', 'predictors'))
-        os.makedirs(os.path.join(path, 'test', 'targets'))
+        # os.makedirs(os.path.join(path, 'test', 'targets'))
 
 
 def main(dir_inputs: str, dir_outputs: str, sr_target: int, model):
@@ -157,7 +157,7 @@ def main(dir_inputs: str, dir_outputs: str, sr_target: int, model):
         list_speakers=list_speakers_train
     )
     # Save train targets
-    save_pickle(os.path.join(dir_outputs, 'train', 'targets'), 'targets_train', list_targets_train)
+    # save_pickle(os.path.join(dir_outputs, 'train', 'targets'), 'targets_train', list_targets_train)
     # Get testing subset
     print('Get testing audio subset...\n')
     _, list_dir_audio_test, list_targets_test = get_audio_inputs(
@@ -166,7 +166,7 @@ def main(dir_inputs: str, dir_outputs: str, sr_target: int, model):
         list_speakers=list_speakers_test
     )
     # Save test targets
-    save_pickle(os.path.join(dir_outputs, 'test', 'targets'), 'targets_test', list_targets_test)
+    # save_pickle(os.path.join(dir_outputs, 'test', 'targets'), 'targets_test', list_targets_test)
     # COMPUTE AND SAVE EMBEDDINGS
     # For training subset
     print('\nCompute and save training embeddings\n')
